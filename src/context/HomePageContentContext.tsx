@@ -796,7 +796,8 @@ export const DEFAULT_WHY_MINDFREE_CMS_DATA: WhyMindfreeCMSData = {
 };
 
 const STORAGE_CACHE_KEY = 'mindfree_home_page_cms_v1';
-const MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v3';
+const MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v4';
+const LEGACY_MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v3';
 const PILLOWS_CACHE_KEY = 'mindfree_pillows_cms_v1';
 const FOOTER_CACHE_KEY = 'mindfree_footer_cms_v1';
 const CONTACT_CACHE_KEY = 'mindfree_contact_cms_v1';
@@ -921,15 +922,31 @@ function mergeMattressesData(
       ? raw.mattressModels.map(sanitizeMattressModelImages)
       : DEFAULT_MATTRESSES_CMS_DATA.mattressModels;
 
-  // Ensure any default catalogue models (like sleep-well-memory) and PG custom products are present
+  // Ensure any default catalogue models (including #11 ortho-plus) and PG custom products are present
   const existingIds = new Set(baseModels.map((m) => m.id));
+  const restoredBaseModels = [...baseModels];
+  if (!existingIds.has('ortho-plus')) {
+    const orthoPlusDefault = DEFAULT_MATTRESSES_CMS_DATA.mattressModels.find(
+      (m) => m.id === 'ortho-plus'
+    );
+    if (orthoPlusDefault) {
+      const insertAfterIdx = restoredBaseModels.findIndex((m) => m.id === 'ultra-latex-plus');
+      if (insertAfterIdx !== -1) {
+        restoredBaseModels.splice(insertAfterIdx + 1, 0, orthoPlusDefault);
+      } else {
+        restoredBaseModels.splice(Math.min(10, restoredBaseModels.length), 0, orthoPlusDefault);
+      }
+      existingIds.add('ortho-plus');
+    }
+  }
+
   const missingDefaults =
     raw && Array.isArray(raw.mattressModels) && raw.mattressModels.length <= 14
       ? DEFAULT_MATTRESSES_CMS_DATA.mattressModels.filter((m) => !existingIds.has(m.id))
       : [];
   missingDefaults.forEach((m) => existingIds.add(m.id));
 
-  const template = baseModels[0] || DEFAULT_MATTRESSES_CMS_DATA.mattressModels[0];
+  const template = restoredBaseModels[0] || DEFAULT_MATTRESSES_CMS_DATA.mattressModels[0];
   const pgExtras: CatalogueMattressProduct[] = pgProducts
     .filter((r) => !existingIds.has(r.id))
     .map((r) =>
@@ -955,7 +972,7 @@ function mergeMattressesData(
       })
     );
 
-  const mergedModels = [...baseModels, ...missingDefaults, ...pgExtras].map(
+  const mergedModels = [...restoredBaseModels, ...missingDefaults, ...pgExtras].map(
     sanitizeMattressModelImages
   );
 
@@ -1251,9 +1268,13 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
 
   const [mattressesData, setMattressesData] = useState<MattressesCMSData>(() => {
     try {
-      const cached = localStorage.getItem(MATTRESSES_CACHE_KEY);
+      const cached =
+        localStorage.getItem(MATTRESSES_CACHE_KEY) ||
+        localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
       if (cached) {
-        return mergeMattressesData(JSON.parse(cached));
+        const merged = mergeMattressesData(JSON.parse(cached));
+        localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(merged));
+        return merged;
       }
     } catch {
       // ignore
