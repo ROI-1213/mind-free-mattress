@@ -309,7 +309,13 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     // 14. Admin
-    if (viewParam === 'admin' || pathname === '/admin') {
+    if (
+      viewParam === 'admin' ||
+      params.get('page') === 'admin' ||
+      pathname === '/admin' ||
+      pathname.startsWith('/admin/') ||
+      hash === '#admin'
+    ) {
       return {
         view: 'admin',
         slug: null,

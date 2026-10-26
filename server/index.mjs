@@ -622,7 +622,11 @@ async function ensureCrispProductImages() {
   }
 }
 
-app.listen(PORT, () => {
-  console.log(`Mindfree PostgreSQL API Server running on http://localhost:${PORT}`);
-  ensureCrispProductImages();
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Mindfree PostgreSQL API Server running on http://localhost:${PORT}`);
+    ensureCrispProductImages();
+  });
+}
+
+export default app;
