@@ -149,7 +149,14 @@ app.post('/api/storage/upload', async (req, res) => {
       : base64_data;
     const sizeBytes = Buffer.byteLength(cleanBase64, 'base64');
     const safeFileName = file_name.replace(/[^a-zA-Z0-9._-]/g, '-');
-    const publicUrl = `/api/storage/${bucket_id}/${safeFileName}`;
+    const publicUrl = `/api/storage/${bucket_id}/${safeFileName}?v=${Date.now()}`;
+
+    await pool.query(
+      `INSERT INTO storage_buckets (id, name, is_public, description)
+       VALUES ($1, $1, true, 'Auto-created media bucket')
+       ON CONFLICT (id) DO NOTHING`,
+      [bucket_id]
+    );
 
     const { rows } = await pool.query(
       `INSERT INTO storage_objects (bucket_id, file_name, mime_type, size_bytes, base64_data, public_url, alt_text, uploaded_by)

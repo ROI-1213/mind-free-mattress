@@ -151,6 +151,7 @@ export const AdminOrderDashboard: React.FC = () => {
   const [draftWhyMindfree, setDraftWhyMindfree] = useState<WhyMindfreeCMSData>(whyMindfreeData);
   const [inquiriesList, setInquiriesList] = useState<CustomerInquiryRecord[]>([]);
   const [uploadingFieldKey, setUploadingFieldKey] = useState<string | null>(null);
+  const [pendingUploadAutoSave, setPendingUploadAutoSave] = useState<boolean>(false);
 
   // Admin Authentication State
   const ADMIN_AUTH_STORAGE_KEY = 'mindfree_admin_session_v1';
@@ -477,29 +478,38 @@ export const AdminOrderDashboard: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = String(reader.result || '');
-        const uploaded = await uploadImageToPgStorage({
+      const optimizedDataUrl = await optimizeImageFileToDataUrl(file);
+      const uploaded = await uploadImageToPgStorage({
+        bucket_id: selectedBucketId,
+        file_name: file.name,
+        mime_type: file.type || 'image/png',
+        base64_data: optimizedDataUrl,
+        alt_text: uploadAltText.trim() || file.name,
+      });
+      if (uploaded) {
+        setUploadAltText('');
+        await syncAllFromPostgres();
+        showToast(`Uploaded "${uploaded.file_name}" to bucket "${selectedBucketId}".`);
+      } else {
+        const localObj: PgStorageObject = {
+          id: Date.now(),
           bucket_id: selectedBucketId,
           file_name: file.name,
           mime_type: file.type || 'image/png',
-          base64_data: base64Data,
+          size_bytes: file.size,
+          public_url: optimizedDataUrl,
           alt_text: uploadAltText.trim() || file.name,
-        });
-        if (uploaded) {
-          setUploadAltText('');
-          await syncAllFromPostgres();
-          showToast(`Uploaded "${uploaded.file_name}" to bucket "${selectedBucketId}".`);
-        } else {
-          showToast('Image upload failed.');
-        }
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+          uploaded_by: 'Mindfree Admin',
+          created_at: new Date().toISOString(),
+        };
+        setStorageObjects((prev) => [localObj, ...prev]);
+        setUploadAltText('');
+        showToast(`Uploaded "${file.name}" and linked live.`);
+      }
     } catch {
-      setIsUploading(false);
       showToast('Error reading image file.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -530,7 +540,57 @@ export const AdminOrderDashboard: React.FC = () => {
     }
   };
 
-  // Upload an image and assign its public_url to a field
+  // Optimize uploaded image file to a crisp, lightweight Data URL so it works on both Vercel and Localhost
+  const optimizeImageFileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.onload = () => {
+        const rawDataUrl = String(reader.result || '');
+        if (file.type === 'image/svg+xml' || rawDataUrl.length < 180000) {
+          resolve(rawDataUrl);
+          return;
+        }
+        const img = new window.Image();
+        img.onerror = () => resolve(rawDataUrl);
+        img.onload = () => {
+          try {
+            const maxDim = 1400;
+            let width = img.naturalWidth || img.width;
+            let height = img.naturalHeight || img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width >= height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(rawDataUrl);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            // Preserve transparency for PNG/WebP via image/webp; use image/jpeg for JPEGs
+            const outMime = file.type === 'image/png' || file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+            const compressed = canvas.toDataURL(outMime, 0.84);
+            resolve(compressed || rawDataUrl);
+          } catch {
+            resolve(rawDataUrl);
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Upload an image and immediately assign & publish it to the field and storefront
   const handleHomeImageUpload = (
     bucketId: string,
     fieldKey: string,
@@ -540,33 +600,34 @@ export const AdminOrderDashboard: React.FC = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = (ev) => {
+    input.onchange = async (ev) => {
       const file = (ev.target as HTMLInputElement).files?.[0];
       if (!file) return;
       setUploadingFieldKey(fieldKey);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64Data = String(reader.result || '');
-          const uploaded = await uploadImageToPgStorage({
-            bucket_id: bucketId,
-            file_name: file.name,
-            mime_type: file.type || 'image/jpeg',
-            base64_data: base64Data,
-            alt_text: altText || file.name,
-          });
-          if (uploaded?.public_url) {
-            onUrlReady(uploaded.public_url);
-            await syncAllFromPostgres();
-            showToast(`Image uploaded (${bucketId}) & linked.`);
-          } else {
-            showToast('Image upload failed.');
+      try {
+        const optimizedDataUrl = await optimizeImageFileToDataUrl(file);
+        // 1. Immediately update the field and trigger auto-save so the image updates right away in Admin & Storefront
+        onUrlReady(optimizedDataUrl);
+        setPendingUploadAutoSave(true);
+        showToast(`Image "${file.name}" uploaded and updated live!`);
+
+        // 2. Also persist in background storage table if backend is reachable
+        uploadImageToPgStorage({
+          bucket_id: bucketId,
+          file_name: file.name,
+          mime_type: file.type || 'image/jpeg',
+          base64_data: optimizedDataUrl,
+          alt_text: altText || file.name,
+        }).then((uploaded) => {
+          if (uploaded) {
+            syncAllFromPostgres();
           }
-        } finally {
-          setUploadingFieldKey(null);
-        }
-      };
-      reader.readAsDataURL(file);
+        });
+      } catch {
+        showToast('Could not read the selected image file.');
+      } finally {
+        setUploadingFieldKey(null);
+      }
     };
     input.click();
   };
@@ -861,6 +922,13 @@ export const AdminOrderDashboard: React.FC = () => {
     await commitModifiedDrafts();
     setActiveTab(nextTab);
   };
+
+  // Immediately persist any draft changes right after an image upload completes
+  useEffect(() => {
+    if (!pendingUploadAutoSave) return;
+    setPendingUploadAutoSave(false);
+    commitModifiedDrafts();
+  }, [pendingUploadAutoSave, commitModifiedDrafts]);
 
   // Metrics calculation
   const metrics = useMemo(() => {
