@@ -173,6 +173,19 @@ export const MindfreeMattressesPage: React.FC = () => {
   }, [selectedSizeKey]);
 
   const getCardVariant = (product: CatalogueMattressProduct) => {
+    if (selectedSizeKey === '72x30') {
+      return {
+        ...(product.priceMatrix[0] || {
+          sizeFeet: '6 x 2.5',
+          sizeInches: '72 x 30',
+          lengthInches: 72,
+          widthInches: 30,
+          thicknessInches: product.thicknessOptions[0] || 6,
+          verified: true,
+        }),
+        mrp: product.startingPrice,
+      };
+    }
     const defaultThickness = product.thicknessOptions[0];
     return (
       getCatalogueVariantPrice(

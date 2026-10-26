@@ -697,10 +697,13 @@ export const AdminOrderDashboard: React.FC = () => {
     const base = draftMattresses.mattressModels[0];
     if (!base) return;
     const newIndex = draftMattresses.mattressModels.length + 1;
-    const slug = `custom-mattress-${newIndex}`;
+    const slug = `custom-mattress-${Date.now().toString().slice(-4)}-${newIndex}`;
     const assignedCategories: CatalogueCategoryId[] = defaultCategory
       ? [defaultCategory]
-      : ['orthopedic', 'foam'];
+      : ['foam', 'spring', 'orthopedic', 'latex', 'cooling'];
+    const baseStart = base.startingPrice || 8820;
+    const defaultNewStart = 12999;
+    const ratio = defaultNewStart / baseStart;
     const newModel: CatalogueMattressProduct = {
       ...base,
       id: slug,
@@ -715,24 +718,30 @@ export const AdminOrderDashboard: React.FC = () => {
       warrantyMonths: 60,
       warrantyYears: 5,
       thicknessOptions: [5, 6, 8, 10],
-      startingPrice: 12999,
+      startingPrice: defaultNewStart,
       maxPrice: 28999,
       images: {
         ...base.images,
         hero: '/images/products/product-deluxe.jpg',
+        coolingHero: '/images/products/product-deluxe.jpg',
       },
       features: [...base.features],
       layers: base.layers.map((l) => ({ ...l })),
-      priceMatrix: base.priceMatrix.map((v) => ({ ...v })),
+      priceMatrix: base.priceMatrix.map((v) => ({
+        ...v,
+        mrp: Math.round(v.mrp * ratio),
+      })),
     };
-    const nextModels = [...draftMattresses.mattressModels, newModel];
-    setDraftMattresses({ ...draftMattresses, mattressModels: nextModels });
-    setSelectedModelIdx(nextModels.length - 1);
+    const nextModels = [newModel, ...draftMattresses.mattressModels];
+    const nextDraft = { ...draftMattresses, mattressModels: nextModels };
+    setDraftMattresses(nextDraft);
+    saveMattressesData(nextDraft);
+    setSelectedModelIdx(0);
     setIsCreatingNewMattress(true);
     setMatDetailStep('basic');
     setMatSubTab('models');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast(`Opened New Product Page for "${newModel.name}". Fill in details and click Save.`);
+    showToast(`Created "${newModel.name}". Customize details and click Save to update!`);
   };
 
   const handleCancelNewMattressDraft = () => {
@@ -740,8 +749,10 @@ export const AdminOrderDashboard: React.FC = () => {
       const nextModels = draftMattresses.mattressModels.filter(
         (_, i) => i !== selectedModelIdx
       );
-      setDraftMattresses({ ...draftMattresses, mattressModels: nextModels });
-      setSelectedModelIdx(Math.max(0, nextModels.length - 1));
+      const nextDraft = { ...draftMattresses, mattressModels: nextModels };
+      setDraftMattresses(nextDraft);
+      saveMattressesData(nextDraft);
+      setSelectedModelIdx(0);
     }
     setIsCreatingNewMattress(false);
     setMatSubTab('quick-grid');
@@ -816,20 +827,24 @@ export const AdminOrderDashboard: React.FC = () => {
         'Do not submerge or machine wash inner foam core.',
       ],
     };
-    const nextModels = [...draftPillows.pillowModels, newPillow];
-    setDraftPillows({ ...draftPillows, pillowModels: nextModels });
-    setSelectedPillowIdx(nextModels.length - 1);
+    const nextModels = [newPillow, ...draftPillows.pillowModels];
+    const nextDraft = { ...draftPillows, pillowModels: nextModels };
+    setDraftPillows(nextDraft);
+    savePillowsData(nextDraft);
+    setSelectedPillowIdx(0);
     setIsCreatingNewPillow(true);
     setPilSubTab('models');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast(`Opened New Pillow Product Page for "${newPillow.name}".`);
+    showToast(`Created "${newPillow.name}". Customize details and click Save to update!`);
   };
 
   const handleCancelNewPillowDraft = () => {
     if (isCreatingNewPillow && draftPillows.pillowModels.length > 1) {
       const next = draftPillows.pillowModels.filter((_, i) => i !== selectedPillowIdx);
-      setDraftPillows({ ...draftPillows, pillowModels: next });
-      setSelectedPillowIdx(Math.max(0, next.length - 1));
+      const nextDraft = { ...draftPillows, pillowModels: next };
+      setDraftPillows(nextDraft);
+      savePillowsData(nextDraft);
+      setSelectedPillowIdx(0);
     }
     setIsCreatingNewPillow(false);
     setPilSubTab('quick-grid');
@@ -929,6 +944,14 @@ export const AdminOrderDashboard: React.FC = () => {
     setPendingUploadAutoSave(false);
     commitModifiedDrafts();
   }, [pendingUploadAutoSave, commitModifiedDrafts]);
+
+  // Automatically sync any Admin edits after a 400ms debounce so all added/edited products immediately reflect on the storefront
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      commitModifiedDrafts();
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [commitModifiedDrafts]);
 
   // Metrics calculation
   const metrics = useMemo(() => {

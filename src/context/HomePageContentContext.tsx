@@ -1334,16 +1334,30 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
       }
 
       const matRow = rows.find((r) => r.section_key === 'mattresses_cms');
-      const rawMat =
-        matRow && matRow.content_json && Object.keys(matRow.content_json).length > 0
+      const hasMatRow =
+        matRow && matRow.content_json && Object.keys(matRow.content_json).length > 0;
+      const hasPgProducts = Array.isArray(pgProducts) && pgProducts.length > 0;
+
+      if (hasMatRow || hasPgProducts) {
+        let fallbackLocalMat: Partial<MattressesCMSData> | null = null;
+        try {
+          const cachedMatStr = localStorage.getItem(MATTRESSES_CACHE_KEY);
+          if (cachedMatStr) {
+            fallbackLocalMat = JSON.parse(cachedMatStr);
+          }
+        } catch {
+          // ignore
+        }
+        const rawMat = hasMatRow
           ? (matRow.content_json as Partial<MattressesCMSData>)
-          : null;
-      const mergedMat = mergeMattressesData(rawMat, pgProducts || []);
-      setMattressesData(mergedMat);
-      try {
-        localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(mergedMat));
-      } catch {
-        // ignore
+          : fallbackLocalMat;
+        const mergedMat = mergeMattressesData(rawMat, pgProducts || []);
+        setMattressesData(mergedMat);
+        try {
+          localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(mergedMat));
+        } catch {
+          // ignore
+        }
       }
 
       const pilRow = rows.find((r) => r.section_key === 'pillows_cms');
@@ -1407,6 +1421,32 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
   useEffect(() => {
     refreshHomePageData();
   }, [refreshHomePageData]);
+
+  // Listen for cross-tab localStorage updates so Storefront tabs update immediately when Admin tab saves
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.newValue) return;
+      try {
+        if (e.key === STORAGE_CACHE_KEY) {
+          setHomePageData(mergeHomePageData(JSON.parse(e.newValue)));
+        } else if (e.key === MATTRESSES_CACHE_KEY) {
+          setMattressesData(mergeMattressesData(JSON.parse(e.newValue)));
+        } else if (e.key === PILLOWS_CACHE_KEY) {
+          setPillowsData(mergePillowsData(JSON.parse(e.newValue)));
+        } else if (e.key === FOOTER_CACHE_KEY) {
+          setFooterData(mergeFooterData(JSON.parse(e.newValue)));
+        } else if (e.key === CONTACT_CACHE_KEY) {
+          setContactData(mergeContactData(JSON.parse(e.newValue)));
+        } else if (e.key === WHY_MINDFREE_CACHE_KEY) {
+          setWhyMindfreeData(mergeWhyMindfreeData(JSON.parse(e.newValue)));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const saveHomePageData = useCallback(async (nextData: HomePageCMSData): Promise<boolean> => {
     setIsSavingHomePage(true);

@@ -318,6 +318,9 @@ export const MattressCatalogueSection: React.FC<MattressCatalogueSectionProps> =
   }, [selectedSizeKey]);
 
   const getCardVariant = (product: CatalogueMattressProduct) => {
+    if (selectedSizeKey === '72x30') {
+      return { mrp: product.startingPrice };
+    }
     const defaultThickness = product.thicknessOptions[0];
     return (
       getCatalogueVariantPrice(
@@ -325,7 +328,7 @@ export const MattressCatalogueSection: React.FC<MattressCatalogueSectionProps> =
         activeDimension.lengthInches,
         activeDimension.widthInches,
         defaultThickness
-      ) || product.priceMatrix[0]
+      ) || { mrp: product.startingPrice }
     );
   };
 
