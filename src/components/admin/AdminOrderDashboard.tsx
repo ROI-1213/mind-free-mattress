@@ -97,6 +97,15 @@ interface CustomerInquiryRecord {
   submittedAt: string;
 }
 
+interface PendingProductDeletion {
+  type: 'mattress' | 'pillow';
+  id: string;
+  name: string;
+  image: string;
+  price: number;
+  index: number;
+}
+
 export const AdminOrderDashboard: React.FC = () => {
   const { navigateToHome } = useNavigation();
   const {
@@ -152,6 +161,9 @@ export const AdminOrderDashboard: React.FC = () => {
   const [inquiriesList, setInquiriesList] = useState<CustomerInquiryRecord[]>([]);
   const [uploadingFieldKey, setUploadingFieldKey] = useState<string | null>(null);
   const [pendingUploadAutoSave, setPendingUploadAutoSave] = useState<boolean>(false);
+  const [pendingDeleteProduct, setPendingDeleteProduct] = useState<PendingProductDeletion | null>(
+    null
+  );
 
   // Admin Authentication State
   const ADMIN_AUTH_STORAGE_KEY = 'mindfree_admin_session_v1';
@@ -449,6 +461,41 @@ export const AdminOrderDashboard: React.FC = () => {
     if (ok) {
       await syncAllFromPostgres();
       showToast(`Deleted "${name}".`);
+    }
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!pendingDeleteProduct) return;
+    const target = pendingDeleteProduct;
+    setPendingDeleteProduct(null);
+
+    if (target.type === 'mattress') {
+      const nextModels = draftMattresses.mattressModels.filter(
+        (_, i) => i !== target.index
+      );
+      const nextDraft = {
+        ...draftMattresses,
+        mattressModels: nextModels,
+      };
+      setDraftMattresses(nextDraft);
+      setSelectedModelIdx(Math.max(0, Math.min(selectedModelIdx, nextModels.length - 1)));
+      setIsCreatingNewMattress(false);
+      await saveMattressesData(nextDraft);
+      await handleDeleteProduct(target.id, target.name);
+      showToast(`Deleted mattress "${target.name}".`);
+    } else {
+      const nextPillows = draftPillows.pillowModels.filter(
+        (_, i) => i !== target.index
+      );
+      const nextDraft = {
+        ...draftPillows,
+        pillowModels: nextPillows,
+      };
+      setDraftPillows(nextDraft);
+      setSelectedPillowIdx(Math.max(0, Math.min(selectedPillowIdx, nextPillows.length - 1)));
+      setIsCreatingNewPillow(false);
+      await savePillowsData(nextDraft);
+      showToast(`Deleted pillow "${target.name}".`);
     }
   };
 
@@ -3008,17 +3055,16 @@ export const AdminOrderDashboard: React.FC = () => {
                                       1 && (
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          const nextModels =
-                                            draftMattresses.mattressModels.filter(
-                                              (_, i) => i !== idx
-                                            );
-                                          setDraftMattresses({
-                                            ...draftMattresses,
-                                            mattressModels: nextModels,
-                                          });
-                                          handleDeleteProduct(m.id, m.name);
-                                        }}
+                                        onClick={() =>
+                                          setPendingDeleteProduct({
+                                            type: 'mattress',
+                                            id: m.id,
+                                            name: m.name,
+                                            image: m.images.hero,
+                                            price: m.startingPrice,
+                                            index: idx,
+                                          })
+                                        }
                                         className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 cursor-pointer"
                                         title="Delete Mattress"
                                       >
@@ -3158,7 +3204,7 @@ export const AdminOrderDashboard: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-2.5">
-                            {isCreatingNewMattress && (
+                            {isCreatingNewMattress ? (
                               <button
                                 type="button"
                                 onClick={handleCancelNewMattressDraft}
@@ -3166,6 +3212,27 @@ export const AdminOrderDashboard: React.FC = () => {
                               >
                                 Cancel &amp; Discard Draft
                               </button>
+                            ) : (
+                              draftMattresses.mattressModels.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPendingDeleteProduct({
+                                      type: 'mattress',
+                                      id: model.id,
+                                      name: model.name,
+                                      image: model.images.hero,
+                                      price: model.startingPrice,
+                                      index: selectedModelIdx,
+                                    })
+                                  }
+                                  className="min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                                  title="Delete Mattress Product"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete Product</span>
+                                </button>
+                              )
                             )}
 
                             <button
@@ -4853,16 +4920,16 @@ export const AdminOrderDashboard: React.FC = () => {
                           {draftPillows.pillowModels.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => {
-                                const next = draftPillows.pillowModels.filter(
-                                  (_, i) => i !== idx
-                                );
-                                setDraftPillows({
-                                  ...draftPillows,
-                                  pillowModels: next,
-                                });
-                                setSelectedPillowIdx(Math.max(0, idx - 1));
-                              }}
+                              onClick={() =>
+                                setPendingDeleteProduct({
+                                  type: 'pillow',
+                                  id: p.id,
+                                  name: p.name,
+                                  image: p.image,
+                                  price: p.price,
+                                  index: idx,
+                                })
+                              }
                               className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 cursor-pointer"
                               title="Delete Pillow"
                             >
@@ -4947,7 +5014,7 @@ export const AdminOrderDashboard: React.FC = () => {
                           </div>
 
                           <div className="flex items-center gap-2.5">
-                            {isCreatingNewPillow && (
+                            {isCreatingNewPillow ? (
                               <button
                                 type="button"
                                 onClick={handleCancelNewPillowDraft}
@@ -4955,6 +5022,27 @@ export const AdminOrderDashboard: React.FC = () => {
                               >
                                 Cancel &amp; Discard Draft
                               </button>
+                            ) : (
+                              draftPillows.pillowModels.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPendingDeleteProduct({
+                                      type: 'pillow',
+                                      id: pillow.id,
+                                      name: pillow.name,
+                                      image: pillow.image,
+                                      price: pillow.price,
+                                      index: selectedPillowIdx,
+                                    })
+                                  }
+                                  className="min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                                  title="Delete Pillow Product"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete Pillow</span>
+                                </button>
+                              )
                             )}
 
                             <button
@@ -9519,6 +9607,80 @@ export const AdminOrderDashboard: React.FC = () => {
                 >
                   Close Inspection
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Product Deletion Modal */}
+        {pendingDeleteProduct && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#071F52]/60 backdrop-blur-xs">
+            <div className="w-full max-w-md bg-white rounded-3xl border border-[#E2E8F0] shadow-[0_24px_60px_rgba(7,31,82,0.28)] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-[#0A2E73] px-6 py-4 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Confirm Product Deletion
+                    </h3>
+                    <p className="text-[11px] text-white/80">
+                      Please confirm before removing this {pendingDeleteProduct.type}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteProduct(null)}
+                  className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5 text-xs">
+                <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center gap-3.5">
+                  <img
+                    src={pendingDeleteProduct.image}
+                    alt={pendingDeleteProduct.name}
+                    className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shrink-0 bg-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider mb-1">
+                      {pendingDeleteProduct.type === 'mattress' ? 'Mattress Model' : 'Pillow Model'}
+                    </span>
+                    <h4 className="text-sm font-bold text-[#071F52] truncate">
+                      {pendingDeleteProduct.name}
+                    </h4>
+                    <div className="text-[11px] font-bold text-[#0A2E73] mt-0.5">
+                      Starting Price: ₹{Number(pendingDeleteProduct.price || 0).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-[#475569] leading-relaxed">
+                  Are you sure you want to delete{' '}
+                  <strong className="text-[#071F52]">"{pendingDeleteProduct.name}"</strong>? Once confirmed, this product will be removed from the storefront catalogue.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteProduct(null)}
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#F8FAFC] hover:bg-[#EFF6FF] text-[#071F52] border border-[#CBD5E1] font-bold text-xs cursor-pointer transition-colors"
+                  >
+                    No, Keep Product
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteProduct}
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#E3262E] hover:bg-[#C8161D] text-white font-bold text-xs inline-flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Delete Product</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

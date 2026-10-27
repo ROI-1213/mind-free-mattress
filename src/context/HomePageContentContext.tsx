@@ -914,7 +914,8 @@ function sanitizeMattressModelImages(model: CatalogueMattressProduct): Catalogue
 
 function mergeMattressesData(
   raw: Partial<MattressesCMSData> | null | undefined,
-  pgProducts: PgProductRecord[] = []
+  pgProducts: PgProductRecord[] = [],
+  restoreMissingOrthoPlus = false
 ): MattressesCMSData {
   const defMenu = DEFAULT_MATTRESSES_CMS_DATA.megaMenu;
   const baseModels =
@@ -922,10 +923,10 @@ function mergeMattressesData(
       ? raw.mattressModels.map(sanitizeMattressModelImages)
       : DEFAULT_MATTRESSES_CMS_DATA.mattressModels;
 
-  // Ensure any default catalogue models (including #11 ortho-plus) and PG custom products are present
+  // Ensure any default catalogue models (including #11 ortho-plus on legacy migration) and PG custom products are present
   const existingIds = new Set(baseModels.map((m) => m.id));
   const restoredBaseModels = [...baseModels];
-  if (!existingIds.has('ortho-plus')) {
+  if (restoreMissingOrthoPlus && !existingIds.has('ortho-plus')) {
     const orthoPlusDefault = DEFAULT_MATTRESSES_CMS_DATA.mattressModels.find(
       (m) => m.id === 'ortho-plus'
     );
@@ -1268,11 +1269,13 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
 
   const [mattressesData, setMattressesData] = useState<MattressesCMSData>(() => {
     try {
-      const cached =
-        localStorage.getItem(MATTRESSES_CACHE_KEY) ||
-        localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
-      if (cached) {
-        const merged = mergeMattressesData(JSON.parse(cached));
+      const v4Cached = localStorage.getItem(MATTRESSES_CACHE_KEY);
+      if (v4Cached) {
+        return mergeMattressesData(JSON.parse(v4Cached), [], false);
+      }
+      const legacyCached = localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
+      if (legacyCached) {
+        const merged = mergeMattressesData(JSON.parse(legacyCached), [], true);
         localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(merged));
         return merged;
       }
