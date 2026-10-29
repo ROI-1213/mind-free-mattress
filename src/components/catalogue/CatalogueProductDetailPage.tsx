@@ -211,15 +211,17 @@ export const CatalogueProductDetailPage: React.FC<CatalogueProductDetailPageProp
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
           {/* LEFT: 5-View Interactive Product Gallery (Cols 1-7) */}
           <div className="lg:col-span-7 lg:sticky lg:top-24 space-y-4">
-            <div className="relative rounded-3xl overflow-hidden bg-white border border-[#E2E8F0] shadow-lg group aspect-[4/3]">
+            <div className="relative rounded-3xl overflow-hidden bg-white border border-[#E2E8F0] shadow-lg group aspect-[4/3] flex items-center justify-center">
               <img
                 src={galleryItems[activeImageIdx]?.url}
                 alt={galleryItems[activeImageIdx]?.caption}
                 className={`w-full h-full ${
-                  activeImageIdx === 1 || activeImageIdx === 4
-                    ? 'object-contain'
-                    : 'object-cover'
-                } bg-[#F8FAFC] transition-transform duration-500 group-hover:scale-[1.02]`}
+                  activeImageIdx === 1 ||
+                  activeImageIdx === 4 ||
+                  galleryItems[activeImageIdx]?.url?.startsWith('data:image/')
+                    ? 'object-contain p-2 bg-white'
+                    : 'object-cover bg-[#F8FAFC]'
+                } transition-transform duration-500 group-hover:scale-[1.02]`}
               />
 
               {/* Top Overlay Badges */}

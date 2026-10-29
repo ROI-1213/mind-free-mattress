@@ -154,11 +154,17 @@ export const MindfreePillowsPage: React.FC = () => {
                   className="bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-[#E2E8F0] hover:border-[#E3262E]/50 shadow-[0_4px_14px_rgba(10,37,64,0.04)] hover:shadow-[0_20px_44px_rgba(10,46,115,0.12)] sm:hover:-translate-y-1.5 transition-all duration-300 flex flex-row overflow-hidden group h-full"
                 >
                 {/* Left Image */}
-                <div className="relative w-[42%] sm:w-2/5 bg-[#F8FAFC] overflow-hidden shrink-0">
+                <div
+                  className={`relative w-[42%] sm:w-2/5 ${
+                    pillow.image?.startsWith('data:image/') ? 'bg-white' : 'bg-[#F8FAFC]'
+                  } overflow-hidden shrink-0 flex items-center justify-center`}
+                >
                   <img
                     src={pillow.image}
                     alt={pillow.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    className={`w-full h-full ${
+                      pillow.image?.startsWith('data:image/') ? 'object-contain p-2' : 'object-cover'
+                    } group-hover:scale-105 transition-transform duration-700 ease-out`}
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = '/images/type_ortho.png';
                     }}

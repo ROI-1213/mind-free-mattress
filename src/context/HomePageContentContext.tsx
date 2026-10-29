@@ -896,9 +896,15 @@ function sanitizeMattressModelImages(model: CatalogueMattressProduct): Catalogue
   const defaultMatch = DEFAULT_MATTRESSES_CMS_DATA.mattressModels.find((d) => d.id === model.id);
   const fallbackHero = defaultMatch?.images.hero || '/images/products/product-deluxe.jpg';
   const hero = isLowResIconUrl(model.images?.hero) ? fallbackHero : model.images.hero;
+  const isHeroCustomized = hero.startsWith('data:image/') || hero !== fallbackHero;
+  const rawCooling = model.images?.coolingHero;
+  const isCoolingStillDefault = !rawCooling || rawCooling === defaultMatch?.images.coolingHero;
+
   const coolingHero =
-    model.images?.coolingHero && !isLowResIconUrl(model.images.coolingHero)
-      ? model.images.coolingHero
+    isHeroCustomized && isCoolingStillDefault
+      ? hero
+      : rawCooling && !isLowResIconUrl(rawCooling)
+      ? rawCooling
       : defaultMatch?.images.coolingHero;
 
   return {
@@ -923,7 +929,7 @@ function mergeMattressesData(
       ? raw.mattressModels.map(sanitizeMattressModelImages)
       : DEFAULT_MATTRESSES_CMS_DATA.mattressModels;
 
-  // Ensure any default catalogue models (including #11 ortho-plus on legacy migration) and PG custom products are present
+  // Ensure #11 ortho-plus is restored on legacy v3 migration
   const existingIds = new Set(baseModels.map((m) => m.id));
   const restoredBaseModels = [...baseModels];
   if (restoreMissingOrthoPlus && !existingIds.has('ortho-plus')) {
@@ -940,12 +946,6 @@ function mergeMattressesData(
       existingIds.add('ortho-plus');
     }
   }
-
-  const missingDefaults =
-    raw && Array.isArray(raw.mattressModels) && raw.mattressModels.length <= 14
-      ? DEFAULT_MATTRESSES_CMS_DATA.mattressModels.filter((m) => !existingIds.has(m.id))
-      : [];
-  missingDefaults.forEach((m) => existingIds.add(m.id));
 
   const template = restoredBaseModels[0] || DEFAULT_MATTRESSES_CMS_DATA.mattressModels[0];
   const pgExtras: CatalogueMattressProduct[] = pgProducts
@@ -973,9 +973,7 @@ function mergeMattressesData(
       })
     );
 
-  const mergedModels = [...restoredBaseModels, ...missingDefaults, ...pgExtras].map(
-    sanitizeMattressModelImages
-  );
+  const mergedModels = [...restoredBaseModels, ...pgExtras].map(sanitizeMattressModelImages);
 
   if (!raw || typeof raw !== 'object') {
     return {
@@ -1269,13 +1267,19 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
 
   const [mattressesData, setMattressesData] = useState<MattressesCMSData>(() => {
     try {
+      // Free up localStorage space by removing obsolete legacy keys
+      localStorage.removeItem('mindfree_mattresses_cms_v1');
+      localStorage.removeItem('mindfree_mattresses_cms_v2');
+
       const v4Cached = localStorage.getItem(MATTRESSES_CACHE_KEY);
       if (v4Cached) {
+        localStorage.removeItem(LEGACY_MATTRESSES_CACHE_KEY);
         return mergeMattressesData(JSON.parse(v4Cached), [], false);
       }
       const legacyCached = localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
       if (legacyCached) {
         const merged = mergeMattressesData(JSON.parse(legacyCached), [], true);
+        localStorage.removeItem(LEGACY_MATTRESSES_CACHE_KEY);
         localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(merged));
         return merged;
       }

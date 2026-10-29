@@ -464,12 +464,16 @@ export const MindfreeMattressesPage: React.FC = () => {
                       {/* Product Image with Glassmorphic Top-Left Pill Badge */}
                       <div
                         onClick={() => navigateToProduct(product.slug)}
-                        className="relative w-full aspect-[4/3] shrink-0 bg-[#F1F5F9] overflow-hidden cursor-pointer"
+                        className={`relative w-full aspect-[4/3] shrink-0 ${
+                          imageSrc?.startsWith('data:image/') ? 'bg-white' : 'bg-[#F1F5F9]'
+                        } overflow-hidden cursor-pointer flex items-center justify-center`}
                       >
                         <img
                           src={imageSrc}
                           alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                          className={`w-full h-full ${
+                            imageSrc?.startsWith('data:image/') ? 'object-contain p-2' : 'object-cover'
+                          } group-hover:scale-105 transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]`}
                         />
 
                         {/* Subtle Luxury Gradient Vignette on Hover */}

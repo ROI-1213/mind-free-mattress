@@ -587,14 +587,14 @@ export const AdminOrderDashboard: React.FC = () => {
     }
   };
 
-  // Optimize uploaded image file to a crisp, lightweight Data URL so it works on both Vercel and Localhost
+  // Optimize uploaded image file to a crisp, lightweight Data URL so it works on both Vercel and Localhost without exceeding localStorage quota
   const optimizeImageFileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('Failed to read image file'));
       reader.onload = () => {
         const rawDataUrl = String(reader.result || '');
-        if (file.type === 'image/svg+xml' || rawDataUrl.length < 180000) {
+        if (file.type === 'image/svg+xml') {
           resolve(rawDataUrl);
           return;
         }
@@ -602,9 +602,9 @@ export const AdminOrderDashboard: React.FC = () => {
         img.onerror = () => resolve(rawDataUrl);
         img.onload = () => {
           try {
-            const maxDim = 1400;
-            let width = img.naturalWidth || img.width;
-            let height = img.naturalHeight || img.height;
+            const maxDim = 960;
+            let width = img.naturalWidth || img.width || 800;
+            let height = img.naturalHeight || img.height || 600;
             if (width > maxDim || height > maxDim) {
               if (width >= height) {
                 height = Math.round((height * maxDim) / width);
@@ -622,10 +622,15 @@ export const AdminOrderDashboard: React.FC = () => {
               resolve(rawDataUrl);
               return;
             }
+            const isTransparentCapable =
+              file.type === 'image/png' || file.type === 'image/webp';
+            if (!isTransparentCapable) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, width, height);
+            }
             ctx.drawImage(img, 0, 0, width, height);
-            // Preserve transparency for PNG/WebP via image/webp; use image/jpeg for JPEGs
-            const outMime = file.type === 'image/png' || file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
-            const compressed = canvas.toDataURL(outMime, 0.84);
+            const outMime = isTransparentCapable ? 'image/webp' : 'image/jpeg';
+            const compressed = canvas.toDataURL(outMime, 0.8);
             resolve(compressed || rawDataUrl);
           } catch {
             resolve(rawDataUrl);
@@ -635,6 +640,19 @@ export const AdminOrderDashboard: React.FC = () => {
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  // Prevent 100KB+ base64 Data URLs from flooding text inputs in Admin
+  const formatImageInputValue = (url?: string): string => {
+    if (!url) return '';
+    return url.startsWith('data:image/') ? '' : url;
+  };
+
+  const getImageInputPlaceholder = (url?: string, fallback = 'Paste image URL or click Upload'): string => {
+    if (url && url.startsWith('data:image/')) {
+      return '✓ Custom Uploaded Image Active (Paste URL to override)';
+    }
+    return fallback;
   };
 
   // Upload an image and immediately assign & publish it to the field and storefront
@@ -1422,12 +1440,17 @@ export const AdminOrderDashboard: React.FC = () => {
                         </div>
 
                         {/* Live Banner Image Preview + Upload */}
-                        <div className="relative h-36 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#EAF3FC]">
+                        <div className="relative h-48 sm:h-52 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#EAF3FC] flex items-center justify-center">
                           <img
                             src={slide.imageJpg}
                             alt={slide.altText}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain p-1.5"
                           />
+                          {slide.imageJpg?.startsWith('data:image/') && (
+                            <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-emerald-600/95 text-white text-[10px] font-bold shadow-xs">
+                              ✓ Uploaded Image Active
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={() =>
@@ -1440,8 +1463,8 @@ export const AdminOrderDashboard: React.FC = () => {
                                   nextSlides[idx] = {
                                     ...nextSlides[idx],
                                     imageJpg: url,
-                                    imageWebp: url,
-                                    thumbnailWebp: url,
+                                    imageWebp: '',
+                                    thumbnailWebp: '',
                                   };
                                   setDraftHome({ ...draftHome, heroSlides: nextSlides });
                                 }
@@ -1561,7 +1584,8 @@ export const AdminOrderDashboard: React.FC = () => {
                             </label>
                             <input
                               type="text"
-                              value={slide.imageJpg}
+                              value={formatImageInputValue(slide.imageJpg)}
+                              placeholder={getImageInputPlaceholder(slide.imageJpg, '/images/hero-banner-1.jpg')}
                               onChange={(e) => {
                                 const nextSlides = [...draftHome.heroSlides];
                                 nextSlides[idx] = {
@@ -1756,11 +1780,11 @@ export const AdminOrderDashboard: React.FC = () => {
                             <span className="font-semibold text-[#0F2952] block">
                               Room Scene Photo
                             </span>
-                            <div className="relative h-28 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                            <div className="relative h-40 sm:h-44 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                               <img
                                 src={room.roomImage}
                                 alt={room.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-1.5"
                               />
                               <button
                                 type="button"
@@ -1772,7 +1796,7 @@ export const AdminOrderDashboard: React.FC = () => {
                                     (url) => updateRoom({ roomImage: url })
                                   )
                                 }
-                                className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/90 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
+                                className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer shadow-xs"
                               >
                                 <ImageIcon className="w-3 h-3" />
                                 <span>
@@ -1782,7 +1806,8 @@ export const AdminOrderDashboard: React.FC = () => {
                             </div>
                             <input
                               type="text"
-                              value={room.roomImage}
+                              value={formatImageInputValue(room.roomImage)}
+                              placeholder={getImageInputPlaceholder(room.roomImage)}
                               onChange={(e) => updateRoom({ roomImage: e.target.value })}
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[11px] outline-none"
                             />
@@ -1792,11 +1817,11 @@ export const AdminOrderDashboard: React.FC = () => {
                             <span className="font-semibold text-[#0F2952] block">
                               Featured Mattress Photo
                             </span>
-                            <div className="relative h-28 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                            <div className="relative h-40 sm:h-44 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                               <img
                                 src={room.product.image}
                                 alt={room.product.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-1.5"
                               />
                               <button
                                 type="button"
@@ -1808,7 +1833,7 @@ export const AdminOrderDashboard: React.FC = () => {
                                     (url) => updateRoomProduct({ image: url })
                                   )
                                 }
-                                className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/90 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
+                                className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer shadow-xs"
                               >
                                 <ImageIcon className="w-3 h-3" />
                                 <span>
@@ -1818,7 +1843,8 @@ export const AdminOrderDashboard: React.FC = () => {
                             </div>
                             <input
                               type="text"
-                              value={room.product.image}
+                              value={formatImageInputValue(room.product.image)}
+                              placeholder={getImageInputPlaceholder(room.product.image)}
                               onChange={(e) => updateRoomProduct({ image: e.target.value })}
                               className="w-full px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[11px] outline-none"
                             />
@@ -2837,18 +2863,23 @@ export const AdminOrderDashboard: React.FC = () => {
                                 >
                                   <div>
                                     {/* Image Header with 1-Click Photo Upload */}
-                                    <div className="relative h-44 bg-white border-b border-[#E2E8F0] overflow-hidden">
+                                    <div className="relative h-52 bg-white border-b border-[#E2E8F0] overflow-hidden flex items-center justify-center">
                                       <img
                                         src={displayImg}
                                         alt={m.name}
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain p-2"
                                       />
                                       <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#0A2E73]/95 text-white text-[10.5px] font-bold shadow-sm">
                                         {m.warrantyMonths}M Warranty
                                       </span>
-                                      <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/90 text-[#071F52] font-mono text-[10px] font-bold border border-[#E2E8F0]">
+                                      <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/95 text-[#071F52] font-mono text-[10px] font-bold border border-[#E2E8F0] shadow-2xs">
                                         #{idx + 1} • {m.topFinishStyle}
                                       </span>
+                                      {displayImg?.startsWith('data:image/') && (
+                                        <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-emerald-600/95 text-white text-[10px] font-bold shadow-xs">
+                                          ✓ Uploaded Photo
+                                        </span>
+                                      )}
 
                                       <button
                                         type="button"
@@ -2859,15 +2890,11 @@ export const AdminOrderDashboard: React.FC = () => {
                                             m.name,
                                             (url) =>
                                               updateQuickModel({
-                                                images: isCoolingCat
-                                                  ? {
-                                                      ...m.images,
-                                                      coolingHero: url,
-                                                    }
-                                                  : {
-                                                      ...m.images,
-                                                      hero: url,
-                                                    },
+                                                images: {
+                                                  ...m.images,
+                                                  hero: url,
+                                                  coolingHero: url,
+                                                },
                                               })
                                           )
                                         }
@@ -3600,11 +3627,11 @@ export const AdminOrderDashboard: React.FC = () => {
                                   <span className="font-semibold text-[#0F2952] block">
                                     Primary Hero Image
                                   </span>
-                                  <div className="relative h-32 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                                  <div className="relative h-44 sm:h-48 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                                     <img
                                       src={model.images.hero}
                                       alt={model.name}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-contain p-2"
                                     />
                                     <button
                                       type="button"
@@ -3618,11 +3645,12 @@ export const AdminOrderDashboard: React.FC = () => {
                                               images: {
                                                 ...model.images,
                                                 hero: url,
+                                                coolingHero: url,
                                               },
                                             })
                                         )
                                       }
-                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
+                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer shadow-xs"
                                     >
                                       <Upload className="w-3 h-3" />
                                       <span>
@@ -3635,7 +3663,8 @@ export const AdminOrderDashboard: React.FC = () => {
                                   </div>
                                   <input
                                     type="text"
-                                    value={model.images.hero}
+                                    value={formatImageInputValue(model.images.hero)}
+                                    placeholder={getImageInputPlaceholder(model.images.hero)}
                                     onChange={(e) =>
                                       updateModel({
                                         images: {
@@ -3653,14 +3682,14 @@ export const AdminOrderDashboard: React.FC = () => {
                                   <span className="font-semibold text-[#0F2952] block">
                                     Cooling Category Card Image (Optional)
                                   </span>
-                                  <div className="relative h-32 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                                  <div className="relative h-44 sm:h-48 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                                     <img
                                       src={
                                         model.images.coolingHero ||
                                         model.images.hero
                                       }
                                       alt={`${model.name} Cooling`}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-contain p-2"
                                     />
                                     <button
                                       type="button"
@@ -3678,7 +3707,7 @@ export const AdminOrderDashboard: React.FC = () => {
                                             })
                                         )
                                       }
-                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
+                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer shadow-xs"
                                     >
                                       <Upload className="w-3 h-3" />
                                       <span>
@@ -3691,8 +3720,11 @@ export const AdminOrderDashboard: React.FC = () => {
                                   </div>
                                   <input
                                     type="text"
-                                    value={model.images.coolingHero || ''}
-                                    placeholder="Defaults to Primary Hero Image"
+                                    value={formatImageInputValue(model.images.coolingHero || '')}
+                                    placeholder={getImageInputPlaceholder(
+                                      model.images.coolingHero,
+                                      'Defaults to Primary Hero Image'
+                                    )}
                                     onChange={(e) =>
                                       updateModel({
                                         images: {
@@ -3711,11 +3743,11 @@ export const AdminOrderDashboard: React.FC = () => {
                                   <span className="font-semibold text-[#0F2952] block">
                                     Internal Layer Diagram Image
                                   </span>
-                                  <div className="relative h-32 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                                  <div className="relative h-44 sm:h-48 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                                     <img
                                       src={model.images.layers}
                                       alt={`${model.name} Layers`}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-contain p-2"
                                     />
                                     <button
                                       type="button"
@@ -3733,7 +3765,7 @@ export const AdminOrderDashboard: React.FC = () => {
                                             })
                                         )
                                       }
-                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer"
+                                      className="absolute bottom-2 right-2 px-2.5 py-1.5 rounded-lg bg-[#0A2E73]/95 hover:bg-[#E3262E] text-white text-[10.5px] font-semibold flex items-center gap-1 cursor-pointer shadow-xs"
                                     >
                                       <Upload className="w-3 h-3" />
                                       <span>
@@ -3746,7 +3778,8 @@ export const AdminOrderDashboard: React.FC = () => {
                                   </div>
                                   <input
                                     type="text"
-                                    value={model.images.layers}
+                                    value={formatImageInputValue(model.images.layers)}
+                                    placeholder={getImageInputPlaceholder(model.images.layers)}
                                     onChange={(e) =>
                                       updateModel({
                                         images: {
@@ -4244,12 +4277,13 @@ export const AdminOrderDashboard: React.FC = () => {
                       <img
                         src={draftMattresses.megaMenu.campaign.image}
                         alt="Campaign"
-                        className="w-20 h-16 rounded-xl object-cover border border-[#E2E8F0] bg-[#071F52]"
+                        className="w-28 h-24 rounded-xl object-contain p-1.5 border border-[#E2E8F0] bg-[#071F52]"
                       />
                       <div className="flex-1 space-y-1.5">
                         <input
                           type="text"
-                          value={draftMattresses.megaMenu.campaign.image}
+                          value={formatImageInputValue(draftMattresses.megaMenu.campaign.image)}
+                          placeholder={getImageInputPlaceholder(draftMattresses.megaMenu.campaign.image)}
                           onChange={(e) =>
                             setDraftMattresses({
                               ...draftMattresses,
@@ -4297,11 +4331,11 @@ export const AdminOrderDashboard: React.FC = () => {
                     <h3 className="text-base font-bold text-[#071F52]">
                       Dropdown Column 5 — Right Lifestyle Bedroom Banner
                     </h3>
-                    <div className="relative h-44 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#F8FAFC]">
+                    <div className="relative h-48 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-white flex items-center justify-center">
                       <img
                         src={draftMattresses.megaMenu.lifestyleBanner.image}
                         alt={draftMattresses.megaMenu.lifestyleBanner.altText}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1.5"
                       />
                       <button
                         type="button"
@@ -4336,7 +4370,8 @@ export const AdminOrderDashboard: React.FC = () => {
                         </label>
                         <input
                           type="text"
-                          value={draftMattresses.megaMenu.lifestyleBanner.image}
+                          value={formatImageInputValue(draftMattresses.megaMenu.lifestyleBanner.image)}
+                          placeholder={getImageInputPlaceholder(draftMattresses.megaMenu.lifestyleBanner.image)}
                           onChange={(e) =>
                             setDraftMattresses({
                               ...draftMattresses,
@@ -4791,20 +4826,25 @@ export const AdminOrderDashboard: React.FC = () => {
                       >
                         <div>
                           {/* Image Header with 1-Click Photo Upload */}
-                          <div className="relative h-44 bg-white border-b border-[#E2E8F0] overflow-hidden">
+                          <div className="relative h-52 bg-white border-b border-[#E2E8F0] overflow-hidden flex items-center justify-center">
                             <img
                               src={p.image}
                               alt={p.name}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain p-2"
                             />
                             {p.badge && (
                               <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-[#0A2E73]/95 text-white text-[10.5px] font-bold shadow-sm">
                                 {p.badge}
                               </span>
                             )}
-                            <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/90 text-[#071F52] font-mono text-[10px] font-bold border border-[#E2E8F0]">
+                            <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/95 text-[#071F52] font-mono text-[10px] font-bold border border-[#E2E8F0] shadow-2xs">
                               Pillow #{idx + 1}
                             </span>
+                            {p.image?.startsWith('data:image/') && (
+                              <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-emerald-600/95 text-white text-[10px] font-bold shadow-xs">
+                                ✓ Uploaded Photo
+                              </span>
+                            )}
 
                             <button
                               type="button"
@@ -5279,7 +5319,7 @@ export const AdminOrderDashboard: React.FC = () => {
                             <img
                               src={pillow.image}
                               alt={pillow.name}
-                              className="w-32 h-24 rounded-xl object-cover bg-white border border-[#E2E8F0] shrink-0"
+                              className="w-44 h-36 rounded-xl object-contain p-2 bg-white border border-[#E2E8F0] shrink-0"
                             />
                             <div className="flex-1 w-full space-y-2">
                               <label className="block font-semibold text-[#0F2952]">
@@ -5288,7 +5328,8 @@ export const AdminOrderDashboard: React.FC = () => {
                               <div className="flex gap-2">
                                 <input
                                   type="text"
-                                  value={pillow.image}
+                                  value={formatImageInputValue(pillow.image)}
+                                  placeholder={getImageInputPlaceholder(pillow.image)}
                                   onChange={(e) => updatePillow({ image: e.target.value })}
                                   className="flex-1 min-h-[40px] px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-white font-mono text-[11px] outline-none"
                                 />
@@ -6283,7 +6324,9 @@ export const AdminOrderDashboard: React.FC = () => {
                       <div>
                         <div className="font-bold text-[#071F52]">Footer Brand Logo</div>
                         <div className="text-[11px] text-[#64748B] font-mono truncate max-w-[220px]">
-                          {draftFooter.brand.logoUrl}
+                          {draftFooter.brand.logoUrl?.startsWith('data:image/')
+                            ? '✓ Custom Uploaded Logo Active'
+                            : draftFooter.brand.logoUrl}
                         </div>
                       </div>
                     </div>
@@ -6319,7 +6362,8 @@ export const AdminOrderDashboard: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      value={draftFooter.brand.logoUrl}
+                      value={formatImageInputValue(draftFooter.brand.logoUrl)}
+                      placeholder={getImageInputPlaceholder(draftFooter.brand.logoUrl)}
                       onChange={(e) =>
                         setDraftFooter({
                           ...draftFooter,
@@ -8419,13 +8463,13 @@ export const AdminOrderDashboard: React.FC = () => {
                     </h3>
                   </div>
 
-                  <div className="relative h-56 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#0A2E73]">
+                  <div className="relative h-60 rounded-2xl overflow-hidden border border-[#E2E8F0] bg-[#0A2E73] flex items-center justify-center">
                     <img
                       src={draftWhyMindfree.manifesto.image}
                       alt="Manifesto Craftsmanship"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain p-1.5"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent flex items-end p-4">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent flex items-end p-4 pointer-events-none">
                       <p className="text-[11px] font-serif italic text-white/90">
                         {draftWhyMindfree.manifesto.imageQuote}
                       </p>
@@ -8439,7 +8483,8 @@ export const AdminOrderDashboard: React.FC = () => {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={draftWhyMindfree.manifesto.image}
+                        value={formatImageInputValue(draftWhyMindfree.manifesto.image)}
+                        placeholder={getImageInputPlaceholder(draftWhyMindfree.manifesto.image)}
                         onChange={(e) =>
                           setDraftWhyMindfree({
                             ...draftWhyMindfree,
