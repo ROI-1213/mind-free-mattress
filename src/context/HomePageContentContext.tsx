@@ -373,8 +373,8 @@ export const DEFAULT_HOMEPAGE_CMS_DATA: HomePageCMSData = {
           image: '/images/rooms/room-bestseller-ortho.jpg',
           rating: '4.8/5',
           reviewsCount: '1,240 reviews',
-          mrpFormatted: '₹24,999',
-          priceFormatted: '₹18,999',
+          mrpFormatted: '₹49,998',
+          priceFormatted: '₹37,998',
           discountLabel: '24% OFF',
         },
       },
@@ -392,8 +392,8 @@ export const DEFAULT_HOMEPAGE_CMS_DATA: HomePageCMSData = {
           image: '/images/products/product-dream-comfort.jpg',
           rating: '4.9/5',
           reviewsCount: '980 reviews',
-          mrpFormatted: '₹21,999',
-          priceFormatted: '₹16,499',
+          mrpFormatted: '₹43,998',
+          priceFormatted: '₹32,998',
           discountLabel: '25% OFF',
         },
       },
@@ -411,8 +411,8 @@ export const DEFAULT_HOMEPAGE_CMS_DATA: HomePageCMSData = {
           image: '/images/products/product-spine-care.jpg',
           rating: '4.8/5',
           reviewsCount: '845 reviews',
-          mrpFormatted: '₹18,999',
-          priceFormatted: '₹14,499',
+          mrpFormatted: '₹37,998',
+          priceFormatted: '₹28,998',
           discountLabel: '24% OFF',
         },
       },
@@ -430,8 +430,8 @@ export const DEFAULT_HOMEPAGE_CMS_DATA: HomePageCMSData = {
           image: '/images/products/product-cool-latex-plus.jpg',
           rating: '4.9/5',
           reviewsCount: '1,120 reviews',
-          mrpFormatted: '₹26,999',
-          priceFormatted: '₹20,499',
+          mrpFormatted: '₹53,998',
+          priceFormatted: '₹40,998',
           discountLabel: '24% OFF',
         },
       },
@@ -795,10 +795,13 @@ export const DEFAULT_WHY_MINDFREE_CMS_DATA: WhyMindfreeCMSData = {
   },
 };
 
-const STORAGE_CACHE_KEY = 'mindfree_home_page_cms_v1';
-const MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v4';
+const STORAGE_CACHE_KEY = 'mindfree_home_page_cms_v2';
+const LEGACY_HOME_CACHE_KEY = 'mindfree_home_page_cms_v1';
+const MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v5';
+const LEGACY_MATTRESSES_V4_KEY = 'mindfree_mattresses_cms_v4';
 const LEGACY_MATTRESSES_CACHE_KEY = 'mindfree_mattresses_cms_v3';
-const PILLOWS_CACHE_KEY = 'mindfree_pillows_cms_v1';
+const PILLOWS_CACHE_KEY = 'mindfree_pillows_cms_v2';
+const LEGACY_PILLOWS_CACHE_KEY = 'mindfree_pillows_cms_v1';
 const FOOTER_CACHE_KEY = 'mindfree_footer_cms_v1';
 const CONTACT_CACHE_KEY = 'mindfree_contact_cms_v1';
 const WHY_MINDFREE_CACHE_KEY = 'mindfree_why_cms_v1';
@@ -1252,12 +1255,39 @@ function mergeWhyMindfreeData(
   };
 }
 
+function doubleFormattedRupeeString(str: string): string {
+  const numeric = Number(String(str || '').replace(/[^0-9.]/g, ''));
+  if (!numeric || isNaN(numeric)) return str;
+  return `₹${Math.round(numeric * 2).toLocaleString('en-IN')}`;
+}
+
 export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [homePageData, setHomePageData] = useState<HomePageCMSData>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_CACHE_KEY);
       if (cached) {
         return mergeHomePageData(JSON.parse(cached));
+      }
+      const legacyHome = localStorage.getItem(LEGACY_HOME_CACHE_KEY);
+      if (legacyHome) {
+        const parsed = mergeHomePageData(JSON.parse(legacyHome));
+        const doubledHome: HomePageCMSData = {
+          ...parsed,
+          shopByRoom: {
+            ...parsed.shopByRoom,
+            rooms: parsed.shopByRoom.rooms.map((rm) => ({
+              ...rm,
+              product: {
+                ...rm.product,
+                mrpFormatted: doubleFormattedRupeeString(rm.product.mrpFormatted),
+                priceFormatted: doubleFormattedRupeeString(rm.product.priceFormatted),
+              },
+            })),
+          },
+        };
+        localStorage.removeItem(LEGACY_HOME_CACHE_KEY);
+        localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(doubledHome));
+        return doubledHome;
       }
     } catch {
       // ignore localStorage parse errors
@@ -1271,17 +1301,37 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
       localStorage.removeItem('mindfree_mattresses_cms_v1');
       localStorage.removeItem('mindfree_mattresses_cms_v2');
 
-      const v4Cached = localStorage.getItem(MATTRESSES_CACHE_KEY);
-      if (v4Cached) {
+      const v5Cached = localStorage.getItem(MATTRESSES_CACHE_KEY);
+      if (v5Cached) {
+        localStorage.removeItem(LEGACY_MATTRESSES_V4_KEY);
         localStorage.removeItem(LEGACY_MATTRESSES_CACHE_KEY);
-        return mergeMattressesData(JSON.parse(v4Cached), [], false);
+        return mergeMattressesData(JSON.parse(v5Cached), [], false);
       }
-      const legacyCached = localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
-      if (legacyCached) {
-        const merged = mergeMattressesData(JSON.parse(legacyCached), [], true);
+
+      const v4OrV3Raw =
+        localStorage.getItem(LEGACY_MATTRESSES_V4_KEY) ||
+        localStorage.getItem(LEGACY_MATTRESSES_CACHE_KEY);
+      if (v4OrV3Raw) {
+        const merged = mergeMattressesData(JSON.parse(v4OrV3Raw), [], true);
+        const doubledModels = merged.mattressModels.map((m) => ({
+          ...m,
+          startingPrice: Number(((m.startingPrice || 0) * 2).toFixed(2)),
+          maxPrice: Number(((m.maxPrice || 0) * 2).toFixed(2)),
+          priceMatrix: Array.isArray(m.priceMatrix)
+            ? m.priceMatrix.map((cell) => ({
+                ...cell,
+                mrp: Number(((cell.mrp || 0) * 2).toFixed(2)),
+              }))
+            : [],
+        }));
+        const nextMat: MattressesCMSData = {
+          ...merged,
+          mattressModels: doubledModels,
+        };
+        localStorage.removeItem(LEGACY_MATTRESSES_V4_KEY);
         localStorage.removeItem(LEGACY_MATTRESSES_CACHE_KEY);
-        localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(merged));
-        return merged;
+        localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(nextMat));
+        return nextMat;
       }
     } catch {
       // ignore
@@ -1293,7 +1343,29 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const cached = localStorage.getItem(PILLOWS_CACHE_KEY);
       if (cached) {
+        localStorage.removeItem(LEGACY_PILLOWS_CACHE_KEY);
         return mergePillowsData(JSON.parse(cached));
+      }
+      const legacyPil = localStorage.getItem(LEGACY_PILLOWS_CACHE_KEY);
+      if (legacyPil) {
+        const mergedPil = mergePillowsData(JSON.parse(legacyPil));
+        const doubledPil: PillowsCMSData = {
+          ...mergedPil,
+          pillowModels: mergedPil.pillowModels.map((p) => ({
+            ...p,
+            price: Math.round((p.price || 0) * 2),
+            originalPrice: Math.round((p.originalPrice || 0) * 2),
+            sizes: Array.isArray(p.sizes)
+              ? p.sizes.map((s) => ({
+                  ...s,
+                  price: Math.round((s.price || 0) * 2),
+                }))
+              : [],
+          })),
+        };
+        localStorage.removeItem(LEGACY_PILLOWS_CACHE_KEY);
+        localStorage.setItem(PILLOWS_CACHE_KEY, JSON.stringify(doubledPil));
+        return doubledPil;
       }
     } catch {
       // ignore

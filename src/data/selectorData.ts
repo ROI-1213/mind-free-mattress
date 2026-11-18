@@ -162,7 +162,7 @@ export const SELECTOR_SIZES: SelectorSizeOption[] = [
   },
 ];
 
-export const CATALOGUE_MATCHES: Record<string, CatalogueProductMatch> = {
+const RAW_CATALOGUE_MATCHES: Record<string, CatalogueProductMatch> = {
   // SPRING CONFIGURATIONS
   'spring_normal-top': {
     id: 'spring_normal-top',
@@ -752,6 +752,27 @@ export const CATALOGUE_MATCHES: Record<string, CatalogueProductMatch> = {
     targetHref: '#collection',
   },
 };
+
+export const CATALOGUE_MATCHES: Record<string, CatalogueProductMatch> = Object.fromEntries(
+  Object.entries(RAW_CATALOGUE_MATCHES).map(([key, match]) => [
+    key,
+    {
+      ...match,
+      prices: {
+        single: match.prices.single * 2,
+        double: match.prices.double * 2,
+        queen: match.prices.queen * 2,
+        king: match.prices.king * 2,
+      },
+      originalPrices: {
+        single: match.originalPrices.single * 2,
+        double: match.originalPrices.double * 2,
+        queen: match.originalPrices.queen * 2,
+        king: match.originalPrices.king * 2,
+      },
+    },
+  ])
+);
 
 export function getMatchingProduct(
   materialId: MattressMaterialId,

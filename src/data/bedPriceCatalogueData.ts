@@ -152,8 +152,9 @@ function buildPriceMatrix(
     const rowPrices = rows[rowIdx];
     if (!rowPrices) return;
     thicknesses.forEach((thickness, colIdx) => {
-      const mrp = rowPrices[colIdx];
-      if (typeof mrp !== 'number') return;
+      const rawMrp = rowPrices[colIdx];
+      if (typeof rawMrp !== 'number') return;
+      const mrp = Number((rawMrp * 2).toFixed(2));
       const cellKey = `${size.lengthInches}x${size.widthInches}-${thickness}`;
       const isRowUnverified = unverifiedRowIndices.includes(rowIdx);
       const cellNote = unverifiedCells[cellKey];
@@ -186,6 +187,7 @@ function buildScaledPriceMatrixFromBase(
   const variants: CataloguePriceVariant[] = [];
   const baseArea = 72 * 30;
   const baseThick = thicknesses[0] || 6;
+  const doubledBasePrice = Number((baseStartingPrice * 2).toFixed(2));
 
   STANDARD_CATALOGUE_SIZES.forEach((size) => {
     const areaFactor = (size.lengthInches * size.widthInches) / baseArea;
@@ -194,8 +196,8 @@ function buildScaledPriceMatrixFromBase(
       const isBaseCell =
         size.lengthInches === 72 && size.widthInches === 30 && colIdx === 0;
       const mrp = isBaseCell
-        ? baseStartingPrice
-        : Math.round(baseStartingPrice * (0.4 + 0.6 * areaFactor) * thickFactor);
+        ? doubledBasePrice
+        : Math.round(doubledBasePrice * (0.4 + 0.6 * areaFactor) * thickFactor);
 
       variants.push({
         sizeFeet: size.sizeFeet,

@@ -766,8 +766,8 @@ export const AdminOrderDashboard: React.FC = () => {
     const assignedCategories: CatalogueCategoryId[] = defaultCategory
       ? [defaultCategory]
       : ['foam', 'spring', 'orthopedic', 'latex', 'cooling'];
-    const baseStart = base.startingPrice || 8820;
-    const defaultNewStart = 12999;
+    const baseStart = base.startingPrice || 17640;
+    const defaultNewStart = 25998;
     const ratio = defaultNewStart / baseStart;
     const newModel: CatalogueMattressProduct = {
       ...base,
@@ -784,7 +784,7 @@ export const AdminOrderDashboard: React.FC = () => {
       warrantyYears: 5,
       thicknessOptions: [5, 6, 8, 10],
       startingPrice: defaultNewStart,
-      maxPrice: 28999,
+      maxPrice: 57998,
       images: {
         ...base.images,
         hero: '/images/products/product-deluxe.jpg',
@@ -860,8 +860,8 @@ export const AdminOrderDashboard: React.FC = () => {
       category: 'pillow',
       tagline: 'Custom Orthopedic Neck & Cervical Support Pillow',
       badge: 'New Release',
-      price: 1999,
-      originalPrice: 2999,
+      price: 3998,
+      originalPrice: 5998,
       rating: 4.9,
       reviewsCount: 120,
       dimensions: '24" × 16" × 5"',
@@ -872,13 +872,13 @@ export const AdminOrderDashboard: React.FC = () => {
         {
           id: 'std',
           label: 'Standard (24" × 16")',
-          price: 1999,
+          price: 3998,
           sku: `${sku}-STD`,
         },
         {
           id: 'king',
           label: 'King Contour (28" × 18")',
-          price: 2499,
+          price: 4998,
           sku: `${sku}-KNG`,
         },
       ],

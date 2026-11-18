@@ -85,7 +85,7 @@ export interface MattressProductDetail {
   reviews: ProductReview[];
 }
 
-export const MATTRESS_PRODUCTS: Record<string, MattressProductDetail> = {
+const RAW_MATTRESS_PRODUCTS: Record<string, MattressProductDetail> = {
   orthopedic: {
     id: 'orthopedic',
     slug: 'orthopedic',
@@ -1316,6 +1316,24 @@ export const MATTRESS_PRODUCTS: Record<string, MattressProductDetail> = {
     ],
   },
 };
+
+export const MATTRESS_PRODUCTS: Record<string, MattressProductDetail> = Object.fromEntries(
+  Object.entries(RAW_MATTRESS_PRODUCTS).map(([key, prod]) => [
+    key,
+    {
+      ...prod,
+      sizes: prod.sizes.map((sz) => ({
+        ...sz,
+        price: sz.price * 2,
+        originalPrice: sz.originalPrice * 2,
+      })),
+      thicknessOptions: prod.thicknessOptions.map((th) => ({
+        ...th,
+        priceDelta: th.priceDelta * 2,
+      })),
+    },
+  ])
+);
 
 export const DEFAULT_PRODUCT_SLUG = 'orthopedic';
 

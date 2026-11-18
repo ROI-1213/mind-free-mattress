@@ -46,7 +46,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '8" & 10"',
     trial: '100 Nights',
     warranty: '10 Years',
-    startingPrice: '₹14,999',
+    startingPrice: '₹29,998',
     mainImage: '/images/mindfree/mindfree-orthopedic.webp',
     thumbnails: [
       '/images/mindfree/mindfree-orthopedic.webp',
@@ -75,7 +75,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '6", 8" & 10"',
     trial: '100 Nights',
     warranty: '10 Years',
-    startingPrice: '₹12,499',
+    startingPrice: '₹24,998',
     mainImage: '/images/mindfree/mindfree-memory-foam.webp',
     thumbnails: [
       '/images/mindfree/mindfree-memory-foam.webp',
@@ -104,7 +104,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '8" & 10"',
     trial: '100 Nights',
     warranty: '12 Years',
-    startingPrice: '₹22,999',
+    startingPrice: '₹45,998',
     mainImage: '/images/mindfree/mindfree-latex.webp',
     thumbnails: [
       '/images/mindfree/mindfree-latex.webp',
@@ -133,7 +133,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '8", 10" & 12"',
     trial: '100 Nights',
     warranty: '10 Years',
-    startingPrice: '₹16,499',
+    startingPrice: '₹32,998',
     mainImage: '/images/mindfree/mindfree-spring.webp',
     thumbnails: [
       '/images/mindfree/mindfree-spring.webp',
@@ -162,7 +162,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '5" & 6"',
     trial: '100 Nights',
     warranty: '7 Years',
-    startingPrice: '₹9,999',
+    startingPrice: '₹19,998',
     mainImage: '/images/mindfree/mindfree-coir.webp',
     thumbnails: [
       '/images/mindfree/mindfree-coir.webp',
@@ -191,7 +191,7 @@ export const MATTRESS_COLLECTIONS: MattressCollectionItem[] = [
     height: '10" & 12"',
     trial: '100 Nights',
     warranty: '15 Years',
-    startingPrice: '₹26,999',
+    startingPrice: '₹53,998',
     mainImage: '/images/mindfree/mindfree-hybrid.webp',
     thumbnails: [
       '/images/mindfree/mindfree-hybrid.webp',
