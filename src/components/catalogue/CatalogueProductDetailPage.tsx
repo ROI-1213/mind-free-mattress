@@ -215,13 +215,7 @@ export const CatalogueProductDetailPage: React.FC<CatalogueProductDetailPageProp
               <img
                 src={galleryItems[activeImageIdx]?.url}
                 alt={galleryItems[activeImageIdx]?.caption}
-                className={`w-full h-full ${
-                  activeImageIdx === 1 ||
-                  activeImageIdx === 4 ||
-                  galleryItems[activeImageIdx]?.url?.startsWith('data:image/')
-                    ? 'object-contain p-2 bg-white'
-                    : 'object-cover bg-[#F8FAFC]'
-                } transition-transform duration-500 group-hover:scale-[1.02]`}
+                className="w-full h-full object-contain p-2 bg-white"
               />
 
               {/* Top Overlay Badges */}

@@ -282,7 +282,11 @@ export const ShopByRoomSection: React.FC = () => {
                       <img
                         src={room.roomImage}
                         alt={room.name}
-                        className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                        className={`w-full h-full ${
+                          room.roomImage?.startsWith('data:image/')
+                            ? 'object-contain bg-white'
+                            : 'object-cover'
+                        }`}
                       />
                     </div>
                     <div
@@ -308,10 +312,14 @@ export const ShopByRoomSection: React.FC = () => {
                   key={room.id}
                   src={room.roomImage}
                   alt={room.name}
-                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  className={`absolute inset-0 w-full h-full ${
+                    room.roomImage?.startsWith('data:image/')
+                      ? 'object-contain bg-white'
+                      : 'object-cover'
+                  } transition-opacity duration-500 ${
                     room.id === activeRoomId
-                      ? 'opacity-100 scale-100 group-hover:scale-[1.03] z-10'
-                      : 'opacity-0 scale-105 z-0 pointer-events-none'
+                      ? 'opacity-100 z-10'
+                      : 'opacity-0 z-0 pointer-events-none'
                   }`}
                 />
               ))}
@@ -373,11 +381,11 @@ export const ShopByRoomSection: React.FC = () => {
                 </div>
 
                 {/* Mattress Studio Cutout / Image */}
-                <div className="mt-1.5 flex-1 min-h-[110px] sm:min-h-0 sm:h-[135px] xl:h-[140px] w-full rounded-lg overflow-hidden">
+                <div className="mt-1.5 flex-1 min-h-[110px] sm:min-h-0 sm:h-[135px] xl:h-[140px] w-full rounded-lg overflow-hidden bg-white flex items-center justify-center">
                   <img
                     src={activeRoom.product.image}
                     alt={activeRoom.product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-contain p-1"
                   />
                 </div>
               </div>

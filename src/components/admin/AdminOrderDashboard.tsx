@@ -587,14 +587,15 @@ export const AdminOrderDashboard: React.FC = () => {
     }
   };
 
-  // Optimize uploaded image file to a crisp, lightweight Data URL so it works on both Vercel and Localhost without exceeding localStorage quota
+  // Preserve 100% Full HD original resolution without blur so uploaded images look crystal-clear in Admin & Storefront
   const optimizeImageFileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('Failed to read image file'));
       reader.onload = () => {
         const rawDataUrl = String(reader.result || '');
-        if (file.type === 'image/svg+xml') {
+        // Keep 100% untouched original HD image for SVG or files up to 3.5 MB (zero re-compression, zero blur)
+        if (file.type === 'image/svg+xml' || file.size <= 3.5 * 1024 * 1024) {
           resolve(rawDataUrl);
           return;
         }
@@ -602,17 +603,19 @@ export const AdminOrderDashboard: React.FC = () => {
         img.onerror = () => resolve(rawDataUrl);
         img.onload = () => {
           try {
-            const maxDim = 960;
-            let width = img.naturalWidth || img.width || 800;
-            let height = img.naturalHeight || img.height || 600;
-            if (width > maxDim || height > maxDim) {
-              if (width >= height) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              } else {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
+            const maxDim = 2400;
+            let width = img.naturalWidth || img.width || 1920;
+            let height = img.naturalHeight || img.height || 1080;
+            if (width <= maxDim && height <= maxDim) {
+              resolve(rawDataUrl);
+              return;
+            }
+            if (width >= height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
             }
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -622,6 +625,8 @@ export const AdminOrderDashboard: React.FC = () => {
               resolve(rawDataUrl);
               return;
             }
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             const isTransparentCapable =
               file.type === 'image/png' || file.type === 'image/webp';
             if (!isTransparentCapable) {
@@ -630,7 +635,7 @@ export const AdminOrderDashboard: React.FC = () => {
             }
             ctx.drawImage(img, 0, 0, width, height);
             const outMime = isTransparentCapable ? 'image/webp' : 'image/jpeg';
-            const compressed = canvas.toDataURL(outMime, 0.8);
+            const compressed = canvas.toDataURL(outMime, 0.95);
             resolve(compressed || rawDataUrl);
           } catch {
             resolve(rawDataUrl);
@@ -4512,7 +4517,7 @@ export const AdminOrderDashboard: React.FC = () => {
                           <img
                             src={mat.image}
                             alt={mat.name}
-                            className="w-11 h-9 rounded-md object-cover bg-white border border-[#E2E8F0] shrink-0"
+                            className="w-11 h-9 rounded-md object-contain p-0.5 bg-white border border-[#E2E8F0] shrink-0"
                           />
                           <div className="flex-1 space-y-1">
                             <input
@@ -4582,7 +4587,7 @@ export const AdminOrderDashboard: React.FC = () => {
                             <img
                               src={des.image}
                               alt={des.name}
-                              className="w-12 h-10 rounded-md object-cover bg-white border border-[#E2E8F0] shrink-0"
+                              className="w-12 h-10 rounded-md object-contain p-0.5 bg-white border border-[#E2E8F0] shrink-0"
                             />
                             <div className="flex-1 space-y-1">
                               <input
@@ -9107,7 +9112,7 @@ export const AdminOrderDashboard: React.FC = () => {
                         <img
                           src={obj.public_url}
                           alt={obj.alt_text || obj.file_name}
-                          className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] bg-white shrink-0"
+                          className="w-16 h-16 rounded-xl object-contain p-1 border border-[#E2E8F0] bg-white shrink-0"
                         />
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-[#071F52] truncate">
@@ -9595,7 +9600,7 @@ export const AdminOrderDashboard: React.FC = () => {
                         <img
                           src={item.image}
                           alt={item.name}
-                          className="w-14 h-14 rounded-xl object-cover border border-[#E2E8F0] shrink-0"
+                          className="w-14 h-14 rounded-xl object-contain p-1 bg-white border border-[#E2E8F0] shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-xs font-serif font-bold text-[#071F52] truncate">
@@ -9689,7 +9694,7 @@ export const AdminOrderDashboard: React.FC = () => {
                   <img
                     src={pendingDeleteProduct.image}
                     alt={pendingDeleteProduct.name}
-                    className="w-16 h-16 rounded-xl object-cover border border-[#E2E8F0] shrink-0 bg-white"
+                    className="w-16 h-16 rounded-xl object-contain p-1 border border-[#E2E8F0] shrink-0 bg-white"
                   />
                   <div className="min-w-0 flex-1">
                     <span className="inline-block px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider mb-1">

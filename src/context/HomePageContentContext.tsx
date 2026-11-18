@@ -806,6 +806,66 @@ const FOOTER_CACHE_KEY = 'mindfree_footer_cms_v1';
 const CONTACT_CACHE_KEY = 'mindfree_contact_cms_v1';
 const WHY_MINDFREE_CACHE_KEY = 'mindfree_why_cms_v1';
 
+const IDB_NAME = 'mindfree_hd_cms_db';
+const IDB_STORE = 'cms_store';
+
+function openCmsIdb(): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined' || !window.indexedDB) {
+        resolve(null);
+        return;
+      }
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function saveToHdStorage(key: string, value: unknown): Promise<void> {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // If Full-HD images exceed localStorage's 5MB limit, IndexedDB below persists up to 500MB+
+  }
+  try {
+    const db = await openCmsIdb();
+    if (!db) return;
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // ignore
+  }
+}
+
+async function loadFromHdStorage<T>(key: string): Promise<T | null> {
+  try {
+    const db = await openCmsIdb();
+    if (!db) return null;
+    return await new Promise<T | null>((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve((req.result as T) ?? null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
 interface HomePageContentContextType {
   homePageData: HomePageCMSData;
   isSavingHomePage: boolean;
@@ -1519,7 +1579,24 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
   }, []);
 
   useEffect(() => {
-    refreshHomePageData();
+    // Hydrate from IndexedDB first (supports 500MB+ of Full-HD images), then check Postgres
+    (async () => {
+      const [idbHome, idbMat, idbPil, idbFooter, idbContact, idbWhy] = await Promise.all([
+        loadFromHdStorage<Partial<HomePageCMSData>>(STORAGE_CACHE_KEY),
+        loadFromHdStorage<Partial<MattressesCMSData>>(MATTRESSES_CACHE_KEY),
+        loadFromHdStorage<Partial<PillowsCMSData>>(PILLOWS_CACHE_KEY),
+        loadFromHdStorage<Partial<FooterCMSData>>(FOOTER_CACHE_KEY),
+        loadFromHdStorage<Partial<ContactPageCMSData>>(CONTACT_CACHE_KEY),
+        loadFromHdStorage<Partial<WhyMindfreeCMSData>>(WHY_MINDFREE_CACHE_KEY),
+      ]);
+      if (idbHome) setHomePageData(mergeHomePageData(idbHome));
+      if (idbMat) setMattressesData(mergeMattressesData(idbMat, [], false));
+      if (idbPil) setPillowsData(mergePillowsData(idbPil));
+      if (idbFooter) setFooterData(mergeFooterData(idbFooter));
+      if (idbContact) setContactData(mergeContactData(idbContact));
+      if (idbWhy) setWhyMindfreeData(mergeWhyMindfreeData(idbWhy));
+      await refreshHomePageData();
+    })();
   }, [refreshHomePageData]);
 
   // Listen for cross-tab localStorage updates so Storefront tabs update immediately when Admin tab saves
@@ -1553,11 +1630,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergeHomePageData(nextData);
       setHomePageData(merged);
-      try {
-        localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(STORAGE_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'home_page_cms',
         title: 'Complete Home Page Configuration',
@@ -1581,11 +1654,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergeMattressesData(nextData);
       setMattressesData(merged);
-      try {
-        localStorage.setItem(MATTRESSES_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(MATTRESSES_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'mattresses_cms',
         title: 'Complete Mattresses & Mega-Menu Dropdown Configuration',
@@ -1609,11 +1678,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergePillowsData(nextData);
       setPillowsData(merged);
-      try {
-        localStorage.setItem(PILLOWS_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(PILLOWS_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'pillows_cms',
         title: 'Complete Pillows & Dropdown Configuration',
@@ -1637,11 +1702,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergeFooterData(nextData);
       setFooterData(merged);
-      try {
-        localStorage.setItem(FOOTER_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(FOOTER_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'footer_cms',
         title: 'Complete Footer Configuration',
@@ -1666,11 +1727,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergeContactData(nextData);
       setContactData(merged);
-      try {
-        localStorage.setItem(CONTACT_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(CONTACT_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'contact_cms',
         title: 'Complete Contact Us Page Configuration',
@@ -1695,11 +1752,7 @@ export const HomePageContentProvider: React.FC<{ children: React.ReactNode }> = 
     try {
       const merged = mergeWhyMindfreeData(nextData);
       setWhyMindfreeData(merged);
-      try {
-        localStorage.setItem(WHY_MINDFREE_CACHE_KEY, JSON.stringify(merged));
-      } catch {
-        // ignore
-      }
+      await saveToHdStorage(WHY_MINDFREE_CACHE_KEY, merged);
       const saved = await saveSiteContentToPg({
         section_key: 'why_mindfree_cms',
         title: 'Complete Why Mindfree Page & Dropdown Configuration',

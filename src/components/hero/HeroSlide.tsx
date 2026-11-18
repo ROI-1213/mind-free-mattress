@@ -33,9 +33,11 @@ export const HeroSlide: React.FC<HeroSlideProps> = ({
             <img
               src={slide.imageJpg}
               alt={slide.altText}
-              className={`w-full lg:w-[82%] h-full object-cover object-[center_right] transition-transform duration-[9000ms] ease-out ${
-                isActive ? 'animate-ken-burns scale-100' : 'scale-[1.06]'
-              }`}
+              className={`w-full lg:w-[82%] h-full ${
+                slide.imageJpg?.startsWith('data:image/')
+                  ? 'object-contain object-right'
+                  : 'object-cover object-[center_right]'
+              } scale-100`}
               style={{
                 maskImage: 'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 88%, rgba(0,0,0,0) 100%)',
                 WebkitMaskImage: 'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 88%, rgba(0,0,0,0) 100%)',
@@ -46,9 +48,11 @@ export const HeroSlide: React.FC<HeroSlideProps> = ({
           <img
             src={slide.imageJpg}
             alt={slide.altText}
-            className={`w-full h-full object-cover object-[center_right] transition-transform duration-[9000ms] ease-out ${
-              isActive ? 'animate-ken-burns scale-100' : 'scale-[1.06]'
-            }`}
+            className={`w-full h-full ${
+              slide.imageJpg?.startsWith('data:image/')
+                ? 'object-contain object-right'
+                : 'object-cover object-[center_right]'
+            } scale-100`}
           />
         )}
       </div>
